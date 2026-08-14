@@ -1,0 +1,14 @@
+<resources>
+    <style name="Theme.CreatorPulse" parent="android:style/Theme.Material.NoActionBar">
+        <item name="android:fontFamily">sans</item>
+        <item name="android:windowLightStatusBar">false</item>
+        <item name="android:statusBarColor">@color/creatorpulse_background</item>
+        <item name="android:navigationBarColor">@color/creatorpulse_background</item>
+        <item name="android:windowBackground">@color/creatorpulse_background</item>
+        <item name="android:colorAccent">@color/creatorpulse_violet</item>
+        <item name="android:windowNoTitle">true</item>
+    </style>
+    <style name="Theme.CreatorPulse.Splash" parent="Theme.CreatorPulse">
+        <item name="android:windowBackground">@drawable/splash_background</item>
+    </style>
+</resources>

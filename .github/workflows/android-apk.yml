@@ -23,12 +23,25 @@ jobs:
       - uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '8.9'
+      - name: Apply Android auth response fix
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          p = Path('android-app/app/src/main/java/com/creatorpulse/app/MainActivity.java')
+          s = p.read_text()
+          old = 'JSONObject json = new JSONObject(read(c, status).isEmpty() ? "{}" : read(c, status));'
+          new = 'String responseText = read(c, status); JSONObject json = new JSONObject(responseText.isEmpty() ? "{}" : responseText);'
+          if old not in s:
+              raise SystemExit('Expected auth response line not found')
+          p.write_text(s.replace(old, new))
+          PY
       - name: Build debug APK
         working-directory: android-app
         run: gradle :app:assembleDebug --stacktrace
       - name: Verify APK
         run: |
           test -s android-app/app/build/outputs/apk/debug/app-debug.apk
+          unzip -t android-app/app/build/outputs/apk/debug/app-debug.apk >/dev/null
           ls -lh android-app/app/build/outputs/apk/debug/app-debug.apk
       - uses: actions/upload-artifact@v4
         with:

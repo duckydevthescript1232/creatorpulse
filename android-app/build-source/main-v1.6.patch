@@ -1,0 +1,196 @@
+--- MainActivity.java
++++ MainActivity.java
+@@ -69,7 +69,7 @@
+ public final class MainActivity extends Activity {
+     private static final String APP_URL = BuildConfig.WEB_APP_URL;
+     private static final String APP_HOST = Uri.parse(APP_URL).getHost();
+-    private static final String UA = "CreatorPulseAndroid/1.5";
++    private static final String UA = "CreatorPulseAndroid/1.6";
+     private static final int FILE_PICKER = 2401;
+     private static final int BG = Color.rgb(7, 9, 15);
+     private static final int SURFACE = Color.rgb(17, 20, 31);
+@@ -88,6 +88,7 @@
+     private ValueCallback<Uri[]> chooser;
+     private ConnectivityManager.NetworkCallback networkCallback;
+     private boolean nativeOpen, offline, splashFinished;
++    private int systemTopInset, systemBottomInset;
+ 
+     @Override protected void onCreate(Bundle state) {
+         super.onCreate(state);
+@@ -119,15 +120,26 @@
+         root.addView(content, match());
+         FrameLayout.LayoutParams tp = new FrameLayout.LayoutParams(-1, dp(58));
+         tp.gravity = Gravity.TOP;
++        tp.setMargins(dp(10), dp(6), dp(10), 0);
+         root.addView(top, tp);
+-        FrameLayout.LayoutParams bp = new FrameLayout.LayoutParams(-1, dp(68));
++        FrameLayout.LayoutParams bp = new FrameLayout.LayoutParams(-1, dp(74));
+         bp.gravity = Gravity.BOTTOM;
++        bp.setMargins(dp(10), 0, dp(10), dp(8));
+         root.addView(bottom, bp);
+         root.addView(overlay, match());
+         FrameLayout.LayoutParams pp = new FrameLayout.LayoutParams(-1, dp(3));
+         pp.gravity = Gravity.TOP;
+         root.addView(progress, pp);
++
++        root.setOnApplyWindowInsetsListener((v, insets) -> {
++            systemTopInset = Math.max(0, insets.getSystemWindowInsetTop());
++            systemBottomInset = Math.max(0, insets.getSystemWindowInsetBottom());
++            applySystemInsets();
++            return insets;
++        });
++
+         setContentView(root);
++        root.requestApplyInsets();
+ 
+         chrome(false);
+         configureWeb();
+@@ -268,6 +280,7 @@
+                 offline = false;
+                 CookieManager.getInstance().flush();
+                 String path = uri.getPath() == null ? "/dashboard" : uri.getPath();
++                updateBottomSelection(path);
+                 if ("/login".equals(path)) { loginScreen(uri.getQueryParameter("returnTo"), null); return; }
+                 if ("/register".equals(path)) { registerScreen(null); return; }
+                 if ("/channel-setup".equals(path)) { channelScreen(null); return; }
+@@ -286,7 +299,7 @@
+     }
+ 
+     private void injectCss() {
+-        String js = "(function(){document.documentElement.classList.add('creatorpulse-android-app');if(document.getElementById('cp-app-css'))return;var s=document.createElement('style');s.id='cp-app-css';s.textContent='html,body{max-width:100%!important;overflow-x:hidden!important}.cp-topbar.app-topbar,.cp-sidebar.sidebar{display:none!important}.cp-shell-v3.app-shell{display:block!important;min-height:100dvh!important}.cp-shell-v3 .dashboard-content,.cp-dashboard-content{width:calc(100% - 20px)!important;max-width:100%!important;padding:14px 0 28px!important}.mobile-menu,.mobile-brand{display:none!important}body{background:#07090f!important;overscroll-behavior-y:contain}button,a,summary{touch-action:manipulation;min-height:44px}.cp-coach-panel{max-height:calc(100dvh - 18px)!important}.cp-coach-floating{max-width:calc(100vw - 16px)!important}';document.head.appendChild(s);})();";
++        String js = "(function(){document.documentElement.classList.add('creatorpulse-android-app');if(document.getElementById('cp-app-css'))return;var s=document.createElement('style');s.id='cp-app-css';s.textContent='html,body{max-width:100%!important;overflow-x:hidden!important}.cp-topbar.app-topbar,.cp-sidebar.sidebar{display:none!important}.cp-shell-v3.app-shell{display:block!important;min-height:100dvh!important}.cp-shell-v3 .dashboard-content,.cp-dashboard-content{width:calc(100% - 28px)!important;max-width:100%!important;padding:18px 0 30px!important}.mobile-menu,.mobile-brand{display:none!important}body{background:#07090f!important;overscroll-behavior-y:contain}button,a,summary{touch-action:manipulation;min-height:44px}.cp-coach-fab,.cp-coach-floating{display:none!important}';document.head.appendChild(s);})();";
+         web.evaluateJavascript(js, null);
+     }
+ 
+@@ -294,7 +307,13 @@
+         LinearLayout b = row();
+         boolean compact = screenWidthDp() < 390;
+         b.setPadding(dp(compact ? 10 : 14), 0, dp(compact ? 8 : 10), 0);
+-        b.setBackgroundColor(Color.rgb(10, 12, 19));
++        GradientDrawable surface = new GradientDrawable(
++                GradientDrawable.Orientation.TOP_BOTTOM,
++                new int[]{Color.rgb(24, 24, 40), Color.rgb(13, 16, 27)});
++        surface.setCornerRadius(dp(20));
++        surface.setStroke(dp(1), Color.argb(90, 145, 101, 245));
++        b.setBackground(surface);
++        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) b.setElevation(dp(10));
+ 
+         LinearLayout brandWrap = row();
+         View mark = logoMark(15);
+@@ -318,7 +337,15 @@
+ 
+     private LinearLayout bottomBar() {
+         LinearLayout b = row();
+-        b.setBackgroundColor(Color.rgb(10, 12, 19));
++        b.setPadding(dp(6), dp(5), dp(6), dp(5));
++        GradientDrawable surface = new GradientDrawable(
++                GradientDrawable.Orientation.TL_BR,
++                new int[]{Color.rgb(50, 31, 88), Color.rgb(27, 23, 52), Color.rgb(14, 17, 29)});
++        surface.setCornerRadius(dp(25));
++        surface.setStroke(dp(1), Color.argb(150, 142, 91, 246));
++        b.setBackground(surface);
++        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) b.setElevation(dp(18));
++
+         nav(b, "⌂", "Home", "/dashboard");
+         nav(b, "✦", "Ideas", "/ideas");
+         nav(b, "⚡", "Tools", "/tools");
+@@ -331,23 +358,92 @@
+         LinearLayout x = new LinearLayout(this);
+         x.setOrientation(LinearLayout.VERTICAL);
+         x.setGravity(Gravity.CENTER);
++        x.setTag(path);
++        x.setPadding(dp(2), dp(3), dp(2), dp(3));
++
+         TextView i = txt(icon, PURPLE2, 19, true);
+-        TextView t = txt(label, Color.rgb(177, 181, 197), 10, false);
++        TextView t = txt(label, Color.rgb(177, 181, 197), screenWidthDp() < 390 ? 9 : 10, false);
+         i.setGravity(Gravity.CENTER);
+         t.setGravity(Gravity.CENTER);
+-        x.addView(i, new LinearLayout.LayoutParams(-1, dp(30)));
+-        x.addView(t, new LinearLayout.LayoutParams(-1, dp(22)));
+-        x.setOnClickListener(v -> go(path));
+-        b.addView(x, new LinearLayout.LayoutParams(0, -1, 1));
++        x.addView(i, new LinearLayout.LayoutParams(-1, dp(29)));
++        x.addView(t, new LinearLayout.LayoutParams(-1, dp(21)));
++        x.setOnClickListener(v -> {
++            updateBottomSelection(path);
++            go(path);
++        });
++
++        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(0, -1, 1);
++        lp.setMargins(dp(2), 0, dp(2), 0);
++        b.addView(x, lp);
++    }
++
++    private GradientDrawable activeNavDrawable() {
++        GradientDrawable active = new GradientDrawable(
++                GradientDrawable.Orientation.TOP_BOTTOM,
++                new int[]{Color.rgb(151, 98, 255), Color.rgb(102, 58, 207)});
++        active.setCornerRadius(dp(18));
++        active.setStroke(dp(1), Color.argb(175, 205, 179, 255));
++        return active;
++    }
++
++    private void updateBottomSelection(String currentPath) {
++        if (bottom == null) return;
++        String normalized = currentPath == null ? "/dashboard" : currentPath;
++        for (int n = 0; n < bottom.getChildCount(); n++) {
++            View child = bottom.getChildAt(n);
++            if (!(child instanceof LinearLayout)) continue;
++            LinearLayout item = (LinearLayout) child;
++            Object tag = item.getTag();
++            if (!(tag instanceof String)) continue;
++            String target = (String) tag;
++            boolean active = normalized.equals(target)
++                    || ("/dashboard".equals(target) && "/".equals(normalized))
++                    || ("/settings".equals(target) && normalized.startsWith("/settings"));
++            item.setBackground(active ? activeNavDrawable() : null);
++            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) item.setElevation(active ? dp(5) : 0);
++            if (item.getChildCount() >= 2) {
++                ((TextView) item.getChildAt(0)).setTextColor(active ? Color.WHITE : PURPLE2);
++                ((TextView) item.getChildAt(1)).setTextColor(active ? Color.WHITE : Color.rgb(177, 181, 197));
++                ((TextView) item.getChildAt(1)).setTypeface(Typeface.DEFAULT, active ? Typeface.BOLD : Typeface.NORMAL);
++            }
++        }
++    }
++
++    private void applySystemInsets() {
++        if (top == null || bottom == null || content == null) return;
++
++        FrameLayout.LayoutParams topParams = (FrameLayout.LayoutParams) top.getLayoutParams();
++        topParams.height = dp(58);
++        topParams.topMargin = systemTopInset + dp(6);
++        topParams.leftMargin = dp(10);
++        topParams.rightMargin = dp(10);
++        top.setLayoutParams(topParams);
++
++        FrameLayout.LayoutParams bottomParams = (FrameLayout.LayoutParams) bottom.getLayoutParams();
++        bottomParams.height = dp(74);
++        bottomParams.bottomMargin = systemBottomInset + dp(8);
++        bottomParams.leftMargin = dp(10);
++        bottomParams.rightMargin = dp(10);
++        bottom.setLayoutParams(bottomParams);
++
++        FrameLayout.LayoutParams progressParams = (FrameLayout.LayoutParams) progress.getLayoutParams();
++        progressParams.topMargin = systemTopInset;
++        progress.setLayoutParams(progressParams);
++
++        if (top.getVisibility() == View.VISIBLE || bottom.getVisibility() == View.VISIBLE) chrome(true);
+     }
+ 
+     private void chrome(boolean show) {
+         top.setVisibility(show ? View.VISIBLE : View.GONE);
+         bottom.setVisibility(show ? View.VISIBLE : View.GONE);
+         FrameLayout.LayoutParams p = (FrameLayout.LayoutParams) content.getLayoutParams();
+-        p.topMargin = show ? dp(58) : 0;
+-        p.bottomMargin = show ? dp(68) : 0;
++        p.topMargin = show ? systemTopInset + dp(70) : 0;
++        p.bottomMargin = show ? systemBottomInset + dp(90) : 0;
+         content.setLayoutParams(p);
++        if (show) {
++            String url = web == null ? null : web.getUrl();
++            updateBottomSelection(url == null ? "/dashboard" : Uri.parse(url).getPath());
++        }
+     }
+ 
+     private void loginScreen(String returnTo, String initialError) {

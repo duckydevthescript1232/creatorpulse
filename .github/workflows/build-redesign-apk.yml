@@ -1,4 +1,4 @@
-name: Build CreatorPulse 1.6.4 Android Phone APK
+name: Build CreatorPulse 1.7.0 Android App
 
 on:
   push:
@@ -17,7 +17,7 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Set up Java 17
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@v5
         with:
           distribution: temurin
           java-version: '17'
@@ -37,8 +37,9 @@ jobs:
           mkdir -p /tmp/creatorpulse-native
           unzip -q /tmp/creatorpulse-native-src.zip -d /tmp/creatorpulse-native
           test -f /tmp/creatorpulse-native/CreatorPulse-Android-REDESIGN/app/build.gradle.kts
+          test -f /tmp/creatorpulse-native/CreatorPulse-Android-REDESIGN/app/src/main/java/com/creatorpulse/app/MainActivity.java
 
-      - name: Apply Android phone scaling and icon refresh
+      - name: Apply Android-native phone UI fixes
         shell: bash
         run: |
           set -euo pipefail
@@ -49,57 +50,175 @@ jobs:
           root = Path('/tmp/creatorpulse-native/CreatorPulse-Android-REDESIGN')
           gradle = root / 'app/build.gradle.kts'
           g = gradle.read_text()
-          g = re.sub(r'versionCode\s*=\s*\d+', 'versionCode = 14', g)
-          g = re.sub(r'versionName\s*=\s*"[^"]+"', 'versionName = "1.6.4"', g)
+          g = re.sub(r'versionCode\s*=\s*\d+', 'versionCode = 15', g)
+          g = re.sub(r'versionName\s*=\s*"[^"]+"', 'versionName = "1.7.0"', g)
           gradle.write_text(g)
 
           p = root / 'app/src/main/java/com/creatorpulse/app/MainActivity.java'
           s = p.read_text()
-          for old in ('CreatorPulseAndroid/1.6.0','CreatorPulseAndroid/1.6.1','CreatorPulseAndroid/1.6.2','CreatorPulseAndroid/1.6.3'):
-              s = s.replace(old, 'CreatorPulseAndroid/1.6.4')
+          s = re.sub(r'private static final String UA = "CreatorPulseAndroid/[^"]+";', 'private static final String UA = "CreatorPulseAndroid/1.7.0";', s)
 
-          # This is the important fix: do NOT render a 980px desktop page and shrink it.
-          s = s.replace('setUseWideViewPort(true)', 'setUseWideViewPort(false)')
-          s = s.replace('setLoadWithOverviewMode(true)', 'setLoadWithOverviewMode(false)')
+          if 'import android.view.WindowInsets;' not in s:
+              s = s.replace('import android.view.Gravity;\n', 'import android.view.Gravity;\nimport android.view.WindowInsets;\n', 1)
 
-          marker = 'ANDROID_PHONE_SCALE_164'
-          if marker not in s:
-              needle = 'web.getSettings().setJavaScriptEnabled(true);'
-              if needle not in s:
-                  raise SystemExit('Could not find WebView settings block')
-              s = s.replace(
-                  needle,
-                  needle + '\n'
-                  '        // ANDROID_PHONE_SCALE_164\n'
-                  '        web.getSettings().setUseWideViewPort(false);\n'
-                  '        web.getSettings().setLoadWithOverviewMode(false);\n'
-                  '        web.getSettings().setTextZoom(110);\n'
-                  '        web.setInitialScale(100);',
-                  1
-              )
+          s = s.replace('        setContentView(root);\n\n        chrome(false);', '        setContentView(root);\n        applySystemBarInsets();\n\n        chrome(false);', 1)
+          s = s.replace('        s.setTextZoom(100);', '        s.setTextZoom(118);', 1)
+          s = s.replace('FrameLayout.LayoutParams tp = new FrameLayout.LayoutParams(-1, dp(56));', 'FrameLayout.LayoutParams tp = new FrameLayout.LayoutParams(-1, dp(60));', 1)
+          s = s.replace('FrameLayout.LayoutParams bp = new FrameLayout.LayoutParams(-1, dp(66));', 'FrameLayout.LayoutParams bp = new FrameLayout.LayoutParams(-1, dp(62));', 1)
+          s = s.replace('        p.topMargin = show ? dp(56) : 0;', '        p.topMargin = show ? dp(60) : 0;', 1)
+          s = s.replace('        p.bottomMargin = show ? dp(66) : 0;', '        p.bottomMargin = show ? dp(62) : 0;', 1)
 
-          # Make the nav visibly different from the old build.
-          icon_rules = [
-              (r'nav\(b,"[^"]*","Home","/dashboard"\);', 'nav(b,"⌂","Home","/dashboard");'),
-              (r'nav\(b,"[^"]*","Ideas","/ideas"\);', 'nav(b,"◈","Ideas","/ideas");'),
-              (r'nav\(b,"[^"]*","Videos","/videos"\);', 'nav(b,"▷","Videos","/videos");'),
-              (r'nav\(b,"[^"]*","Analytics","/analytics"\);', 'nav(b,"↗","Analytics","/analytics");'),
-              (r'nav\(b,"[^"]*","Tools","/tools"\);', 'nav(b,"⚙","Tools","/tools");'),
+          old_nav = '''    private LinearLayout bottomBar() {
+              LinearLayout b = row();
+              b.setPadding(dp(6), dp(4), dp(6), dp(4));
+              b.setBackground(shape(Color.rgb(11, 13, 21), 22, Color.rgb(35, 40, 55)));
+              nav(b, "⌂", "Home", "/dashboard");
+              nav(b, "✦", "Ideas", "/ideas");
+              nav(b, "▶", "Videos", "/videos");
+              nav(b, "▥", "Analytics", "/analytics");
+              nav(b, "⚡", "Tools", "/tools");
+              return b;
+          }
+
+          private void nav(LinearLayout b, String icon, String label, String path) {
+              LinearLayout x = new LinearLayout(this);
+              x.setOrientation(LinearLayout.VERTICAL);
+              x.setGravity(Gravity.CENTER);
+              x.setPadding(dp(2), dp(3), dp(2), dp(2));
+              TextView i = txt(icon, PURPLE2, 17, true);
+              TextView t = txt(label, Color.rgb(206, 210, 224), 10, false);
+              i.setGravity(Gravity.CENTER);
+              t.setGravity(Gravity.CENTER);
+              x.addView(i, new LinearLayout.LayoutParams(-1, dp(25)));
+              x.addView(t, new LinearLayout.LayoutParams(-1, dp(20)));
+              x.setOnClickListener(v -> go(path));
+              b.addView(x, new LinearLayout.LayoutParams(0, -1, 1));
+          }
+
+          '''
+          new_nav = '''    private LinearLayout bottomBar() {
+              LinearLayout b = row();
+              b.setPadding(dp(8), dp(4), dp(8), dp(4));
+              b.setBackground(shape(Color.rgb(11, 13, 21), 20, Color.rgb(35, 40, 55)));
+              nav(b, NavIconView.HOME, "Home", "/dashboard");
+              nav(b, NavIconView.IDEAS, "Ideas", "/ideas");
+              nav(b, NavIconView.VIDEOS, "Videos", "/videos");
+              nav(b, NavIconView.ANALYTICS, "Analytics", "/analytics");
+              nav(b, NavIconView.TOOLS, "Tools", "/tools");
+              return b;
+          }
+
+          private void nav(LinearLayout b, int iconType, String label, String path) {
+              LinearLayout x = new LinearLayout(this);
+              x.setOrientation(LinearLayout.VERTICAL);
+              x.setGravity(Gravity.CENTER);
+              x.setPadding(dp(2), dp(2), dp(2), 0);
+              NavIconView i = new NavIconView(this, iconType);
+              TextView t = txt(label, Color.rgb(211, 214, 227), 10, false);
+              t.setGravity(Gravity.CENTER);
+              x.addView(i, new LinearLayout.LayoutParams(dp(28), dp(28)));
+              x.addView(t, new LinearLayout.LayoutParams(-1, dp(18)));
+              x.setOnClickListener(v -> go(path));
+              b.addView(x, new LinearLayout.LayoutParams(0, -1, 1));
+          }
+
+          private void applySystemBarInsets() {
+              root.setOnApplyWindowInsetsListener((v, insets) -> {
+                  int topInset;
+                  int bottomInset;
+                  if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                      android.graphics.Insets bars = insets.getInsets(WindowInsets.Type.systemBars());
+                      topInset = bars.top;
+                      bottomInset = bars.bottom;
+                  } else {
+                      topInset = insets.getSystemWindowInsetTop();
+                      bottomInset = insets.getSystemWindowInsetBottom();
+                  }
+                  if (v.getPaddingTop() != topInset || v.getPaddingBottom() != bottomInset) {
+                      v.setPadding(0, topInset, 0, bottomInset);
+                  }
+                  return insets;
+              });
+              root.requestApplyInsets();
+          }
+
+          '''
+          if old_nav not in s:
+              raise SystemExit('Expected bottom navigation block not found')
+          s = s.replace(old_nav, new_nav, 1)
+
+          replacements = {
+              'font-size:16px!important;-webkit-text-size-adjust': 'font-size:17px!important;-webkit-text-size-adjust',
+              'padding:16px 14px 28px!important': 'padding:18px 14px 32px!important',
+              'font-size:26px!important;line-height:1.12': 'font-size:28px!important;line-height:1.12',
+              'font-size:13px!important;line-height:1.45': 'font-size:14px!important;line-height:1.45',
+              '.cp-data-source-note,.cp-warning-ribbon{width:100%!important;border-radius:16px!important;padding:12px 13px!important;margin-bottom:12px!important;}': '.cp-data-source-note{display:none!important}.cp-warning-ribbon{width:100%!important;border-radius:16px!important;padding:12px 13px!important;margin-bottom:12px!important;font-size:13px!important;}',
+              'min-height:116px!important;padding:14px!important': 'min-height:128px!important;padding:16px!important',
+              '.cp-home-metrics strong{font-size:20px!important;': '.cp-home-metrics strong{font-size:25px!important;',
+              '.cp-home-metrics span{font-size:11px!important;}.cp-home-metrics small{font-size:10px!important;': '.cp-home-metrics span{font-size:13px!important;}.cp-home-metrics small{font-size:12px!important;',
+              '.cp-opportunity-copy h2{font-size:22px!important;': '.cp-opportunity-copy h2{font-size:23px!important;',
+              '.cp-opportunity-copy p{font-size:13px!important;': '.cp-opportunity-copy p{font-size:14px!important;',
+              'border-radius:19px!important;padding:15px!important;}': 'border-radius:19px!important;padding:17px!important;font-size:14px!important;}',
+              '.cp-mini-list strong{font-size:13px!important;': '.cp-mini-list strong{font-size:14px!important;',
+              'border-radius:14px!important;font-size:13px!important;font-weight:750!important;': 'border-radius:14px!important;font-size:14px!important;font-weight:750!important;',
+          }
+          for old, new in replacements.items():
+              if old in s:
+                  s = s.replace(old, new, 1)
+
+          nav_class = r'''
+
+          private static final class NavIconView extends View {
+              static final int HOME = 1, IDEAS = 2, VIDEOS = 3, ANALYTICS = 4, TOOLS = 5;
+              private final Paint paint = new Paint(Paint.ANTI_ALIAS_FLAG);
+              private final Path path = new Path();
+              private final int type;
+
+              NavIconView(Context context, int type) {
+                  super(context);
+                  this.type = type;
+                  paint.setColor(PURPLE2);
+                  paint.setStyle(Paint.Style.STROKE);
+                  paint.setStrokeCap(Paint.Cap.ROUND);
+                  paint.setStrokeJoin(Paint.Join.ROUND);
+                  paint.setStrokeWidth(context.getResources().getDisplayMetrics().density * 2f);
+              }
+
+              @Override protected void onDraw(Canvas c) {
+                  super.onDraw(c);
+                  float w=getWidth(), h=getHeight(), d=getResources().getDisplayMetrics().density;
+                  paint.setStrokeWidth(2f*d); paint.setStyle(Paint.Style.STROKE); path.reset();
+                  switch(type) {
+                      case HOME:
+                          path.moveTo(w*.20f,h*.48f); path.lineTo(w*.50f,h*.22f); path.lineTo(w*.80f,h*.48f);
+                          path.moveTo(w*.28f,h*.43f); path.lineTo(w*.28f,h*.78f); path.lineTo(w*.72f,h*.78f); path.lineTo(w*.72f,h*.43f); c.drawPath(path,paint); break;
+                      case IDEAS:
+                          c.drawCircle(w*.50f,h*.43f,w*.19f,paint); c.drawLine(w*.42f,h*.66f,w*.58f,h*.66f,paint); c.drawLine(w*.44f,h*.74f,w*.56f,h*.74f,paint); c.drawLine(w*.50f,h*.12f,w*.50f,h*.04f,paint); c.drawLine(w*.20f,h*.22f,w*.13f,h*.15f,paint); c.drawLine(w*.80f,h*.22f,w*.87f,h*.15f,paint); break;
+                      case VIDEOS:
+                          c.drawRoundRect(new RectF(w*.18f,h*.25f,w*.82f,h*.75f),4f*d,4f*d,paint); paint.setStyle(Paint.Style.FILL); path.moveTo(w*.44f,h*.37f); path.lineTo(w*.44f,h*.63f); path.lineTo(w*.65f,h*.50f); path.close(); c.drawPath(path,paint); break;
+                      case ANALYTICS:
+                          paint.setStyle(Paint.Style.FILL); c.drawRoundRect(new RectF(w*.20f,h*.56f,w*.31f,h*.78f),2*d,2*d,paint); c.drawRoundRect(new RectF(w*.39f,h*.42f,w*.50f,h*.78f),2*d,2*d,paint); c.drawRoundRect(new RectF(w*.58f,h*.27f,w*.69f,h*.78f),2*d,2*d,paint); c.drawRoundRect(new RectF(w*.77f,h*.16f,w*.88f,h*.78f),2*d,2*d,paint); break;
+                      case TOOLS:
+                          c.drawCircle(w*.50f,h*.50f,w*.20f,paint); c.drawCircle(w*.50f,h*.50f,w*.07f,paint); for(int i=0;i<8;i++){double a=Math.PI*2*i/8.0;float x1=(float)(w*.50f+Math.cos(a)*w*.25f),y1=(float)(h*.50f+Math.sin(a)*h*.25f),x2=(float)(w*.50f+Math.cos(a)*w*.34f),y2=(float)(h*.50f+Math.sin(a)*h*.34f);c.drawLine(x1,y1,x2,y2,paint);} break;
+                  }
+              }
+          }
+          '''
+          if 'private static final class NavIconView' not in s:
+              end = s.rfind('\n}')
+              if end < 0: raise SystemExit('MainActivity closing brace not found')
+              s = s[:end] + nav_class + s[end:]
+
+          checks = [
+              'applySystemBarInsets();',
+              's.setTextZoom(118);',
+              'nav(b, NavIconView.HOME',
+              'private static final class NavIconView',
+              'versionName = "1.7.0"' in g,
           ]
-          for pat, repl in icon_rules:
-              s = re.sub(pat, repl, s)
-
-          # Also replace the oversized native top-right symbols with a cleaner play/channel + profile treatment.
-          s = s.replace('pill("Channel")', 'pill("▶")')
-          s = s.replace('pill("CP")', 'pill("CP")')
-
+          if not all(checks): raise SystemExit('Android patch verification failed')
           p.write_text(s)
-          print('Patched:', p)
-          print('wide viewport false =', 'setUseWideViewPort(false)' in s)
-          print('overview false =', 'setLoadWithOverviewMode(false)' in s)
-          print('initial scale 100 =', 'setInitialScale(100)' in s)
-          print('text zoom 110 =', 'setTextZoom(110)' in s)
-          print('new tools icon =', '"⚙","Tools"' in s)
+          print('CreatorPulse Android 1.7.0 patch verified')
           PY
 
       - name: Build APK
@@ -110,15 +229,15 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          cp /tmp/creatorpulse-native/CreatorPulse-Android-REDESIGN/app/build/outputs/apk/debug/app-debug.apk "$GITHUB_WORKSPACE/CreatorPulse-1.6.4-ANDROID-PHONE.apk"
-          unzip -t "$GITHUB_WORKSPACE/CreatorPulse-1.6.4-ANDROID-PHONE.apk"
-          test -s "$GITHUB_WORKSPACE/CreatorPulse-1.6.4-ANDROID-PHONE.apk"
-          sha256sum "$GITHUB_WORKSPACE/CreatorPulse-1.6.4-ANDROID-PHONE.apk"
+          cp /tmp/creatorpulse-native/CreatorPulse-Android-REDESIGN/app/build/outputs/apk/debug/app-debug.apk "$GITHUB_WORKSPACE/CreatorPulse-1.7.0-ANDROID.apk"
+          unzip -t "$GITHUB_WORKSPACE/CreatorPulse-1.7.0-ANDROID.apk"
+          test -s "$GITHUB_WORKSPACE/CreatorPulse-1.7.0-ANDROID.apk"
+          sha256sum "$GITHUB_WORKSPACE/CreatorPulse-1.7.0-ANDROID.apk"
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: CreatorPulse-1.6.4-ANDROID-PHONE
-          path: CreatorPulse-1.6.4-ANDROID-PHONE.apk
+          name: CreatorPulse-1.7.0-ANDROID
+          path: CreatorPulse-1.7.0-ANDROID.apk
           if-no-files-found: error
           retention-days: 14

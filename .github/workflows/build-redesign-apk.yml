@@ -1,4 +1,4 @@
-name: Build CreatorPulse 1.6.3 Android Phone APK
+name: Build CreatorPulse 1.6.4 Android Phone APK
 
 on:
   push:
@@ -38,115 +38,68 @@ jobs:
           unzip -q /tmp/creatorpulse-native-src.zip -d /tmp/creatorpulse-native
           test -f /tmp/creatorpulse-native/CreatorPulse-Android-REDESIGN/app/build.gradle.kts
 
-      - name: Apply true phone viewport and native shell fixes
+      - name: Apply Android phone scaling and icon refresh
         shell: bash
         run: |
           set -euo pipefail
           python3 - <<'PY'
           from pathlib import Path
-          import re, json
+          import re
 
           root = Path('/tmp/creatorpulse-native/CreatorPulse-Android-REDESIGN')
           gradle = root / 'app/build.gradle.kts'
           g = gradle.read_text()
-          g = re.sub(r'versionCode\s*=\s*\d+', 'versionCode = 13', g)
-          g = re.sub(r'versionName\s*=\s*"[^"]+"', 'versionName = "1.6.3"', g)
+          g = re.sub(r'versionCode\s*=\s*\d+', 'versionCode = 14', g)
+          g = re.sub(r'versionName\s*=\s*"[^"]+"', 'versionName = "1.6.4"', g)
           gradle.write_text(g)
 
           p = root / 'app/src/main/java/com/creatorpulse/app/MainActivity.java'
           s = p.read_text()
-          s = s.replace('CreatorPulseAndroid/1.6.0', 'CreatorPulseAndroid/1.6.3')
-          s = s.replace('CreatorPulseAndroid/1.6.1', 'CreatorPulseAndroid/1.6.3')
-          s = s.replace('CreatorPulseAndroid/1.6.2', 'CreatorPulseAndroid/1.6.3')
+          for old in ('CreatorPulseAndroid/1.6.0','CreatorPulseAndroid/1.6.1','CreatorPulseAndroid/1.6.2','CreatorPulseAndroid/1.6.3'):
+              s = s.replace(old, 'CreatorPulseAndroid/1.6.4')
 
-          # Stop WebView from shrinking a desktop-width page to fit the phone.
+          # This is the important fix: do NOT render a 980px desktop page and shrink it.
           s = s.replace('setUseWideViewPort(true)', 'setUseWideViewPort(false)')
           s = s.replace('setLoadWithOverviewMode(true)', 'setLoadWithOverviewMode(false)')
-          if 'web.getSettings().setJavaScriptEnabled(true);' in s and 'ANDROID_PHONE_SCALE_163' not in s:
+
+          marker = 'ANDROID_PHONE_SCALE_164'
+          if marker not in s:
+              needle = 'web.getSettings().setJavaScriptEnabled(true);'
+              if needle not in s:
+                  raise SystemExit('Could not find WebView settings block')
               s = s.replace(
-                  'web.getSettings().setJavaScriptEnabled(true);',
-                  'web.getSettings().setJavaScriptEnabled(true);\n'
-                  '        // ANDROID_PHONE_SCALE_163\n'
+                  needle,
+                  needle + '\n'
+                  '        // ANDROID_PHONE_SCALE_164\n'
                   '        web.getSettings().setUseWideViewPort(false);\n'
                   '        web.getSettings().setLoadWithOverviewMode(false);\n'
-                  '        web.getSettings().setTextZoom(100);\n'
+                  '        web.getSettings().setTextZoom(110);\n'
                   '        web.setInitialScale(100);',
                   1
               )
 
-          # New, clearly different Android navigation symbols.
-          replacements = {
-              r'nav\(b,"[^"]*","Home","/dashboard"\);': 'nav(b,"⌂","Home","/dashboard");',
-              r'nav\(b,"[^"]*","Ideas","/ideas"\);': 'nav(b,"◈","Ideas","/ideas");',
-              r'nav\(b,"[^"]*","Videos","/videos"\);': 'nav(b,"▷","Videos","/videos");',
-              r'nav\(b,"[^"]*","Analytics","/analytics"\);': 'nav(b,"↗","Analytics","/analytics");',
-              r'nav\(b,"[^"]*","Tools","/tools"\);': 'nav(b,"⚙","Tools","/tools");',
-          }
-          for pat, repl in replacements.items():
+          # Make the nav visibly different from the old build.
+          icon_rules = [
+              (r'nav\(b,"[^"]*","Home","/dashboard"\);', 'nav(b,"⌂","Home","/dashboard");'),
+              (r'nav\(b,"[^"]*","Ideas","/ideas"\);', 'nav(b,"◈","Ideas","/ideas");'),
+              (r'nav\(b,"[^"]*","Videos","/videos"\);', 'nav(b,"▷","Videos","/videos");'),
+              (r'nav\(b,"[^"]*","Analytics","/analytics"\);', 'nav(b,"↗","Analytics","/analytics");'),
+              (r'nav\(b,"[^"]*","Tools","/tools"\);', 'nav(b,"⚙","Tools","/tools");'),
+          ]
+          for pat, repl in icon_rules:
               s = re.sub(pat, repl, s)
 
-          css = r'''
-          html,body{width:100%!important;max-width:100%!important;min-width:0!important;overflow-x:hidden!important;-webkit-text-size-adjust:100%!important;text-size-adjust:100%!important}
-          body{margin:0!important;zoom:1!important;transform:none!important}
-          *,*:before,*:after{box-sizing:border-box!important}
-          .cp-shell-v3 .dashboard-content,.cp-dashboard-content,.dashboard-content,.creator-tools,.cp-ideas-v3,.cp-planner-v3,.settings-v2-content,.video-manager{width:100%!important;max-width:none!important;min-width:0!important;margin:0!important;padding:16px 14px 28px!important}
-          .cp-dashboard-head,.cp-page-title,.creator-tools-head,.cp-ideas-heading,.cp-planner-head{margin:0 0 16px!important;gap:6px!important}
-          .cp-dashboard-head h1,.cp-page-title h1,.creator-tools-head h1,.cp-ideas-heading h1,.cp-planner-head h1{font-size:24px!important;line-height:1.12!important;letter-spacing:-.025em!important;margin:0!important}
-          .cp-dashboard-head p,.cp-page-title p,.creator-tools-head p,.cp-ideas-heading p,.cp-planner-head p{font-size:13px!important;line-height:1.45!important;margin-top:5px!important}
-          .cp-period-chip,.period-control{font-size:12px!important;padding:9px 11px!important;min-width:92px!important;border-radius:12px!important}
-          .cp-home-metrics{display:grid!important;grid-template-columns:repeat(2,minmax(0,1fr))!important;gap:10px!important;margin-bottom:12px!important}
-          .cp-home-metrics article{min-width:0!important;min-height:104px!important;padding:14px!important;border-radius:14px!important}
-          .cp-home-metrics span{font-size:12px!important}.cp-home-metrics strong{font-size:23px!important;line-height:1.05!important}.cp-home-metrics small{font-size:11px!important;line-height:1.35!important}
-          .cp-home-hero-grid,.cp-home-lower-grid{grid-template-columns:1fr!important;gap:10px!important}
-          .cp-home-panel,.cp-opportunity-card{width:100%!important;min-width:0!important;padding:15px!important;border-radius:15px!important}
-          .cp-opportunity-card h2{font-size:18px!important;line-height:1.25!important}.cp-opportunity-card p{font-size:13px!important;line-height:1.5!important}
-          .button,button:not([class*=unstyled]){min-height:46px!important;font-size:14px!important;border-radius:12px!important;padding:10px 14px!important}
-          input:not([type=checkbox]):not([type=radio]),textarea,select{width:100%!important;font-size:16px!important;min-height:46px!important;border-radius:12px!important;padding:11px 12px!important}
-          .cp-home-panel h2,.cp-home-panel h3,.analytics-card h2,.analytics-card h3,.tool-input-card h2,.tool-output-card h2{font-size:16px!important;line-height:1.25!important}
-          .cp-home-panel p,.cp-home-panel li,.analytics-card p,.analytics-card li,.tool-input-card p,.tool-output-card p{font-size:12px!important;line-height:1.45!important}
-          .cp-idea-card-grid,.analytics-grid,.tool-layout,.editor-layout,.settings-v2-grid,.cp-kanban{grid-template-columns:1fr!important}
-          .cp-idea-card{grid-template-columns:78px minmax(0,1fr) auto!important;gap:10px!important;min-height:76px!important;padding:9px!important}
-          .cp-idea-card-cover{width:78px!important;height:58px!important}.cp-idea-card-body h3{font-size:13px!important;line-height:1.3!important}
-          .video-library-list>button{grid-template-columns:96px minmax(0,1fr)!important;gap:10px!important;padding:9px!important;min-height:70px!important}.video-library-list img,.library-thumb{width:96px!important;height:56px!important}
-          .cp-coach-fab{right:14px!important;bottom:86px!important;transform:none!important}
-          @media(max-width:370px){.cp-shell-v3 .dashboard-content,.cp-dashboard-content,.dashboard-content,.creator-tools,.cp-ideas-v3,.cp-planner-v3,.settings-v2-content,.video-manager{padding-left:12px!important;padding-right:12px!important}.cp-dashboard-head h1,.cp-page-title h1{font-size:22px!important}}
-          '''
-          js = """(function(){
-            try {
-              var head=document.head||document.getElementsByTagName('head')[0];
-              var vp=document.querySelector('meta[name=viewport]');
-              if(!vp){vp=document.createElement('meta');vp.name='viewport';head.appendChild(vp);}
-              vp.setAttribute('content','width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover');
-              var st=document.getElementById('cp-android-phone-163');
-              if(!st){st=document.createElement('style');st.id='cp-android-phone-163';head.appendChild(st);}
-              st.textContent=%s;
-              document.documentElement.style.width='100%%';
-              document.body.style.width='100%%';
-            }catch(e){}
-          })();""" % json.dumps(css)
-          java_method = '''\n    private void applyAndroidPhoneLayout(WebView view) {\n        view.setInitialScale(100);\n        view.evaluateJavascript(%s, null);\n    }\n''' % json.dumps(js)
-
-          if 'applyAndroidPhoneLayout(WebView view)' not in s:
-              idx = s.rfind('\n}')
-              if idx < 0:
-                  raise SystemExit('Could not locate end of MainActivity')
-              s = s[:idx] + java_method + s[idx:]
-
-          if 'applyAndroidPhoneLayout(view);' not in s:
-              if 'super.onPageFinished(view, url);' in s:
-                  s = s.replace('super.onPageFinished(view, url);', 'super.onPageFinished(view, url);\n                applyAndroidPhoneLayout(view);', 1)
-              else:
-                  pat = r'(public\s+void\s+onPageFinished\s*\(\s*WebView\s+view\s*,\s*String\s+url\s*\)\s*\{)'
-                  s, n = re.subn(pat, r'\1\n                applyAndroidPhoneLayout(view);', s, count=1)
-                  if n == 0:
-                      raise SystemExit('Could not hook onPageFinished')
+          # Also replace the oversized native top-right symbols with a cleaner play/channel + profile treatment.
+          s = s.replace('pill("Channel")', 'pill("▶")')
+          s = s.replace('pill("CP")', 'pill("CP")')
 
           p.write_text(s)
-          print('Patched MainActivity:', p)
-          print('wide viewport false:', 'setUseWideViewPort(false)' in s)
-          print('overview false:', 'setLoadWithOverviewMode(false)' in s)
-          print('viewport hook:', 'applyAndroidPhoneLayout(view);' in s)
-          print('new Tools icon:', '"⚙","Tools"' in s)
+          print('Patched:', p)
+          print('wide viewport false =', 'setUseWideViewPort(false)' in s)
+          print('overview false =', 'setLoadWithOverviewMode(false)' in s)
+          print('initial scale 100 =', 'setInitialScale(100)' in s)
+          print('text zoom 110 =', 'setTextZoom(110)' in s)
+          print('new tools icon =', '"⚙","Tools"' in s)
           PY
 
       - name: Build APK
@@ -157,15 +110,15 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          cp /tmp/creatorpulse-native/CreatorPulse-Android-REDESIGN/app/build/outputs/apk/debug/app-debug.apk "$GITHUB_WORKSPACE/CreatorPulse-1.6.3-ANDROID-PHONE.apk"
-          unzip -t "$GITHUB_WORKSPACE/CreatorPulse-1.6.3-ANDROID-PHONE.apk"
-          test -s "$GITHUB_WORKSPACE/CreatorPulse-1.6.3-ANDROID-PHONE.apk"
-          sha256sum "$GITHUB_WORKSPACE/CreatorPulse-1.6.3-ANDROID-PHONE.apk"
+          cp /tmp/creatorpulse-native/CreatorPulse-Android-REDESIGN/app/build/outputs/apk/debug/app-debug.apk "$GITHUB_WORKSPACE/CreatorPulse-1.6.4-ANDROID-PHONE.apk"
+          unzip -t "$GITHUB_WORKSPACE/CreatorPulse-1.6.4-ANDROID-PHONE.apk"
+          test -s "$GITHUB_WORKSPACE/CreatorPulse-1.6.4-ANDROID-PHONE.apk"
+          sha256sum "$GITHUB_WORKSPACE/CreatorPulse-1.6.4-ANDROID-PHONE.apk"
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: CreatorPulse-1.6.3-ANDROID-PHONE
-          path: CreatorPulse-1.6.3-ANDROID-PHONE.apk
+          name: CreatorPulse-1.6.4-ANDROID-PHONE
+          path: CreatorPulse-1.6.4-ANDROID-PHONE.apk
           if-no-files-found: error
           retention-days: 14

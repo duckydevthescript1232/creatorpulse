@@ -1,9 +1,9 @@
-name: Build CreatorPulse 1.5.1 Pro UI APK
+name: Build CreatorPulse 1.6.0 Android APK
 
 on:
   push:
     paths:
-      - 'android-redesign/**'
+      - 'android-redesign/native.part*.b64'
       - '.github/workflows/build-redesign-apk.yml'
   workflow_dispatch:
 
@@ -27,17 +27,17 @@ jobs:
         with:
           gradle-version: '8.9'
 
-      - name: Rebuild source archive
+      - name: Rebuild Android source archive
         shell: bash
         run: |
           set -euo pipefail
-          cat android-redesign/source.part*.b64 | tr -d '\n\r ' | base64 -d > /tmp/creatorpulse-src.zip
-          echo "d9cb578524ebe3857b4ad0a5fb29c67d5c2bb2297cbbcb3163bb73b289ca1560  /tmp/creatorpulse-src.zip" | sha256sum -c -
+          cat android-redesign/native.part*.b64 | tr -d '\n\r ' | base64 -d > /tmp/creatorpulse-src.zip
+          echo "31cb3fa8d7e475cd05d2ebfa2307d28a773098184abfb7f448c6b1339f6c457e  /tmp/creatorpulse-src.zip" | sha256sum -c -
           mkdir -p /tmp/creatorpulse-src
           unzip -q /tmp/creatorpulse-src.zip -d /tmp/creatorpulse-src
           test -f /tmp/creatorpulse-src/CreatorPulse-Android-REDESIGN/app/build.gradle.kts
 
-      - name: Build debug APK
+      - name: Build APK
         working-directory: /tmp/creatorpulse-src/CreatorPulse-Android-REDESIGN
         run: gradle :app:assembleDebug --stacktrace
 
@@ -45,14 +45,14 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          cp /tmp/creatorpulse-src/CreatorPulse-Android-REDESIGN/app/build/outputs/apk/debug/app-debug.apk "$GITHUB_WORKSPACE/CreatorPulse-1.5.1-PRO-UI.apk"
-          unzip -t "$GITHUB_WORKSPACE/CreatorPulse-1.5.1-PRO-UI.apk"
-          ls -lh "$GITHUB_WORKSPACE/CreatorPulse-1.5.1-PRO-UI.apk"
+          cp /tmp/creatorpulse-src/CreatorPulse-Android-REDESIGN/app/build/outputs/apk/debug/app-debug.apk "$GITHUB_WORKSPACE/CreatorPulse-1.6.0-ANDROID.apk"
+          unzip -t "$GITHUB_WORKSPACE/CreatorPulse-1.6.0-ANDROID.apk"
+          ls -lh "$GITHUB_WORKSPACE/CreatorPulse-1.6.0-ANDROID.apk"
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: CreatorPulse-1.5.1-PRO-UI
-          path: CreatorPulse-1.5.1-PRO-UI.apk
+          name: CreatorPulse-1.6.0-ANDROID
+          path: CreatorPulse-1.6.0-ANDROID.apk
           if-no-files-found: error
           retention-days: 14

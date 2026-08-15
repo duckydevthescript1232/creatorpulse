@@ -16,6 +16,8 @@ jobs:
       contents: read
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
@@ -25,8 +27,13 @@ jobs:
           gradle-version: '8.9'
       - name: Prepare CreatorPulse 1.6 Android source
         run: |
-          base64 -d android-app/build-source/LauncherActivity.java.gz.b64 | gzip -dc > android-app/app/src/main/java/com/creatorpulse/app/LauncherActivity.java
-          base64 -d android-app/build-source/MainActivity.java.gz.b64 | gzip -dc > android-app/app/src/main/java/com/creatorpulse/app/MainActivity.java
+          git show 85dce168f8271aa796407c371c28c090224bb279:android-app/build-source/LauncherActivity.java.gz.b64 | base64 -d | gzip -dc > android-app/app/src/main/java/com/creatorpulse/app/LauncherActivity.java
+          git show 85dce168f8271aa796407c371c28c090224bb279:android-app/build-source/MainActivity.java.gz.b64 | base64 -d | gzip -dc > android-app/app/src/main/java/com/creatorpulse/app/MainActivity.java
+          patch -d android-app/app/src/main/java/com/creatorpulse/app -p0 < android-app/build-source/launcher-v1.5.patch
+          sed -i 's/CreatorPulseAndroid\/1\.4/CreatorPulseAndroid\/1.5/g' android-app/app/src/main/java/com/creatorpulse/app/LauncherActivity.java
+          sed -i 's/CreatorPulseAndroid\/1\.4/CreatorPulseAndroid\/1.5/g' android-app/app/src/main/java/com/creatorpulse/app/MainActivity.java
+          patch -d android-app/app/src/main/java/com/creatorpulse/app -p0 < android-app/build-source/main-v1.6.patch
+          sed -i 's/CreatorPulseAndroid\/1\.5/CreatorPulseAndroid\/1.6/g' android-app/app/src/main/java/com/creatorpulse/app/LauncherActivity.java
           grep -q 'CreatorPulseAndroid/1.6' android-app/app/src/main/java/com/creatorpulse/app/LauncherActivity.java
           grep -q 'Continue with Google' android-app/app/src/main/java/com/creatorpulse/app/LauncherActivity.java
           grep -q 'CreatorPulseAndroid/1.6' android-app/app/src/main/java/com/creatorpulse/app/MainActivity.java

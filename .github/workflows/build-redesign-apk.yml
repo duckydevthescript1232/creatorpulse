@@ -43,7 +43,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          python3 - <<'PY'
+          cat > /tmp/patch_creatorpulse.py <<'PY'
           from pathlib import Path
           import re
 
@@ -60,166 +60,125 @@ jobs:
 
           if 'import android.view.WindowInsets;' not in s:
               s = s.replace('import android.view.Gravity;\n', 'import android.view.Gravity;\nimport android.view.WindowInsets;\n', 1)
+          if 'import android.widget.ImageView;' not in s:
+              s = s.replace('import android.widget.FrameLayout;\n', 'import android.widget.FrameLayout;\nimport android.widget.ImageView;\n', 1)
 
-          s = s.replace('        setContentView(root);\n\n        chrome(false);', '        setContentView(root);\n        applySystemBarInsets();\n\n        chrome(false);', 1)
+          if 'applySystemBarInsets();' not in s:
+              needle = '        setContentView(root);\n\n        chrome(false);'
+              if needle not in s:
+                  raise SystemExit('setContentView hook not found')
+              s = s.replace(needle, '        setContentView(root);\n        applySystemBarInsets();\n\n        chrome(false);', 1)
+
           s = s.replace('        s.setTextZoom(100);', '        s.setTextZoom(118);', 1)
           s = s.replace('FrameLayout.LayoutParams tp = new FrameLayout.LayoutParams(-1, dp(56));', 'FrameLayout.LayoutParams tp = new FrameLayout.LayoutParams(-1, dp(60));', 1)
           s = s.replace('FrameLayout.LayoutParams bp = new FrameLayout.LayoutParams(-1, dp(66));', 'FrameLayout.LayoutParams bp = new FrameLayout.LayoutParams(-1, dp(62));', 1)
           s = s.replace('        p.topMargin = show ? dp(56) : 0;', '        p.topMargin = show ? dp(60) : 0;', 1)
           s = s.replace('        p.bottomMargin = show ? dp(66) : 0;', '        p.bottomMargin = show ? dp(62) : 0;', 1)
 
-          old_nav = '''    private LinearLayout bottomBar() {
-              LinearLayout b = row();
-              b.setPadding(dp(6), dp(4), dp(6), dp(4));
-              b.setBackground(shape(Color.rgb(11, 13, 21), 22, Color.rgb(35, 40, 55)));
-              nav(b, "⌂", "Home", "/dashboard");
-              nav(b, "✦", "Ideas", "/ideas");
-              nav(b, "▶", "Videos", "/videos");
-              nav(b, "▥", "Analytics", "/analytics");
-              nav(b, "⚡", "Tools", "/tools");
-              return b;
-          }
-
-          private void nav(LinearLayout b, String icon, String label, String path) {
-              LinearLayout x = new LinearLayout(this);
-              x.setOrientation(LinearLayout.VERTICAL);
-              x.setGravity(Gravity.CENTER);
-              x.setPadding(dp(2), dp(3), dp(2), dp(2));
-              TextView i = txt(icon, PURPLE2, 17, true);
-              TextView t = txt(label, Color.rgb(206, 210, 224), 10, false);
-              i.setGravity(Gravity.CENTER);
-              t.setGravity(Gravity.CENTER);
-              x.addView(i, new LinearLayout.LayoutParams(-1, dp(25)));
-              x.addView(t, new LinearLayout.LayoutParams(-1, dp(20)));
-              x.setOnClickListener(v -> go(path));
-              b.addView(x, new LinearLayout.LayoutParams(0, -1, 1));
-          }
-
-          '''
           new_nav = '''    private LinearLayout bottomBar() {
-              LinearLayout b = row();
-              b.setPadding(dp(8), dp(4), dp(8), dp(4));
-              b.setBackground(shape(Color.rgb(11, 13, 21), 20, Color.rgb(35, 40, 55)));
-              nav(b, NavIconView.HOME, "Home", "/dashboard");
-              nav(b, NavIconView.IDEAS, "Ideas", "/ideas");
-              nav(b, NavIconView.VIDEOS, "Videos", "/videos");
-              nav(b, NavIconView.ANALYTICS, "Analytics", "/analytics");
-              nav(b, NavIconView.TOOLS, "Tools", "/tools");
-              return b;
-          }
+                  LinearLayout b = row();
+                  b.setPadding(dp(8), dp(4), dp(8), dp(4));
+                  b.setBackground(shape(Color.rgb(11, 13, 21), 20, Color.rgb(35, 40, 55)));
+                  nav(b, R.drawable.nav_home, "Home", "/dashboard");
+                  nav(b, R.drawable.nav_ideas, "Ideas", "/ideas");
+                  nav(b, R.drawable.nav_videos, "Videos", "/videos");
+                  nav(b, R.drawable.nav_analytics, "Analytics", "/analytics");
+                  nav(b, R.drawable.nav_tools, "Tools", "/tools");
+                  return b;
+              }
 
-          private void nav(LinearLayout b, int iconType, String label, String path) {
-              LinearLayout x = new LinearLayout(this);
-              x.setOrientation(LinearLayout.VERTICAL);
-              x.setGravity(Gravity.CENTER);
-              x.setPadding(dp(2), dp(2), dp(2), 0);
-              NavIconView i = new NavIconView(this, iconType);
-              TextView t = txt(label, Color.rgb(211, 214, 227), 10, false);
-              t.setGravity(Gravity.CENTER);
-              x.addView(i, new LinearLayout.LayoutParams(dp(28), dp(28)));
-              x.addView(t, new LinearLayout.LayoutParams(-1, dp(18)));
-              x.setOnClickListener(v -> go(path));
-              b.addView(x, new LinearLayout.LayoutParams(0, -1, 1));
-          }
+              private void nav(LinearLayout b, int iconRes, String label, String path) {
+                  LinearLayout x = new LinearLayout(this);
+                  x.setOrientation(LinearLayout.VERTICAL);
+                  x.setGravity(Gravity.CENTER);
+                  x.setPadding(dp(2), dp(2), dp(2), 0);
+                  ImageView i = new ImageView(this);
+                  i.setImageResource(iconRes);
+                  i.setColorFilter(PURPLE2);
+                  i.setScaleType(ImageView.ScaleType.CENTER_INSIDE);
+                  TextView t = txt(label, Color.rgb(211, 214, 227), 10, false);
+                  t.setGravity(Gravity.CENTER);
+                  x.addView(i, new LinearLayout.LayoutParams(dp(28), dp(28)));
+                  x.addView(t, new LinearLayout.LayoutParams(-1, dp(18)));
+                  x.setOnClickListener(v -> go(path));
+                  b.addView(x, new LinearLayout.LayoutParams(0, -1, 1));
+              }
 
-          private void applySystemBarInsets() {
-              root.setOnApplyWindowInsetsListener((v, insets) -> {
-                  int topInset;
-                  int bottomInset;
-                  if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-                      android.graphics.Insets bars = insets.getInsets(WindowInsets.Type.systemBars());
-                      topInset = bars.top;
-                      bottomInset = bars.bottom;
-                  } else {
-                      topInset = insets.getSystemWindowInsetTop();
-                      bottomInset = insets.getSystemWindowInsetBottom();
-                  }
-                  if (v.getPaddingTop() != topInset || v.getPaddingBottom() != bottomInset) {
+              private void applySystemBarInsets() {
+                  root.setOnApplyWindowInsetsListener((v, insets) -> {
+                      int topInset;
+                      int bottomInset;
+                      if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                          android.graphics.Insets bars = insets.getInsets(WindowInsets.Type.systemBars());
+                          topInset = bars.top;
+                          bottomInset = bars.bottom;
+                      } else {
+                          topInset = insets.getSystemWindowInsetTop();
+                          bottomInset = insets.getSystemWindowInsetBottom();
+                      }
                       v.setPadding(0, topInset, 0, bottomInset);
-                  }
-                  return insets;
-              });
-              root.requestApplyInsets();
-          }
+                      return insets;
+                  });
+                  root.requestApplyInsets();
+              }
 
           '''
-          if old_nav not in s:
-              raise SystemExit('Expected bottom navigation block not found')
-          s = s.replace(old_nav, new_nav, 1)
+          pat = r'    private LinearLayout bottomBar\(\) \{.*?    private void chrome\(boolean show\) \{'
+          replacement = new_nav + '    private void chrome(boolean show) {'
+          s, count = re.subn(pat, lambda m: replacement, s, count=1, flags=re.S)
+          if count != 1:
+              raise SystemExit(f'bottom nav block match count={count}')
 
-          replacements = {
-              'font-size:16px!important;-webkit-text-size-adjust': 'font-size:17px!important;-webkit-text-size-adjust',
-              'padding:16px 14px 28px!important': 'padding:18px 14px 32px!important',
-              'font-size:26px!important;line-height:1.12': 'font-size:28px!important;line-height:1.12',
-              'font-size:13px!important;line-height:1.45': 'font-size:14px!important;line-height:1.45',
+          css_replacements = {
+              'html{width:100%!important;max-width:100%!important;min-width:0!important;font-size:16px!important;': 'html{width:100%!important;max-width:100%!important;min-width:0!important;font-size:17px!important;',
+              '.cp-shell-v3 .dashboard-content,.cp-dashboard-content,.dashboard-content{width:100%!important;max-width:none!important;min-width:0!important;margin:0!important;padding:16px 14px 28px!important;}': '.cp-shell-v3 .dashboard-content,.cp-dashboard-content,.dashboard-content{width:100%!important;max-width:none!important;min-width:0!important;margin:0!important;padding:18px 14px 32px!important;}',
+              '.cp-dashboard-head h1,.cp-page-title h1{font-size:26px!important;': '.cp-dashboard-head h1,.cp-page-title h1{font-size:28px!important;',
+              '.cp-dashboard-head p,.cp-page-title p{font-size:13px!important;': '.cp-dashboard-head p,.cp-page-title p{font-size:14px!important;',
               '.cp-data-source-note,.cp-warning-ribbon{width:100%!important;border-radius:16px!important;padding:12px 13px!important;margin-bottom:12px!important;}': '.cp-data-source-note{display:none!important}.cp-warning-ribbon{width:100%!important;border-radius:16px!important;padding:12px 13px!important;margin-bottom:12px!important;font-size:13px!important;}',
-              'min-height:116px!important;padding:14px!important': 'min-height:128px!important;padding:16px!important',
+              '.cp-home-metrics article{min-width:0!important;min-height:116px!important;padding:14px!important;': '.cp-home-metrics article{min-width:0!important;min-height:128px!important;padding:16px!important;',
               '.cp-home-metrics strong{font-size:20px!important;': '.cp-home-metrics strong{font-size:25px!important;',
               '.cp-home-metrics span{font-size:11px!important;}.cp-home-metrics small{font-size:10px!important;': '.cp-home-metrics span{font-size:13px!important;}.cp-home-metrics small{font-size:12px!important;',
               '.cp-opportunity-copy h2{font-size:22px!important;': '.cp-opportunity-copy h2{font-size:23px!important;',
               '.cp-opportunity-copy p{font-size:13px!important;': '.cp-opportunity-copy p{font-size:14px!important;',
-              'border-radius:19px!important;padding:15px!important;}': 'border-radius:19px!important;padding:17px!important;font-size:14px!important;}',
               '.cp-mini-list strong{font-size:13px!important;': '.cp-mini-list strong{font-size:14px!important;',
-              'border-radius:14px!important;font-size:13px!important;font-weight:750!important;': 'border-radius:14px!important;font-size:14px!important;font-weight:750!important;',
+              '.button,button[type=submit],.primary-button{min-height:48px!important;width:auto!important;border-radius:14px!important;font-size:13px!important;': '.button,button[type=submit],.primary-button{min-height:50px!important;width:auto!important;border-radius:14px!important;font-size:14px!important;',
           }
-          for old, new in replacements.items():
+          for old, new in css_replacements.items():
               if old in s:
                   s = s.replace(old, new, 1)
 
-          nav_class = r'''
+          needle = '".topic-table,.video-table,.table-scroll,[class*=table-wrap]{max-width:100%!important;overflow-x:auto!important;-webkit-overflow-scrolling:touch!important;}" +'
+          extra = '".topic-table,.video-table,.table-scroll,[class*=table-wrap]{max-width:100%!important;overflow-x:auto!important;-webkit-overflow-scrolling:touch!important;}" +\n            ".cp-home-panel h2,.cp-home-panel h3,.analytics-card h2,.analytics-card h3{font-size:18px!important;line-height:1.3!important}.cp-home-panel p,.cp-home-panel li,.analytics-card p,.analytics-card li{font-size:14px!important;line-height:1.5!important}.cp-mini-list small{font-size:12px!important}.cp-home-panel a,.cp-home-panel button{font-size:14px!important;}" +'
+          if needle in s:
+              s = s.replace(needle, extra, 1)
 
-          private static final class NavIconView extends View {
-              static final int HOME = 1, IDEAS = 2, VIDEOS = 3, ANALYTICS = 4, TOOLS = 5;
-              private final Paint paint = new Paint(Paint.ANTI_ALIAS_FLAG);
-              private final Path path = new Path();
-              private final int type;
+          p.write_text(s)
 
-              NavIconView(Context context, int type) {
-                  super(context);
-                  this.type = type;
-                  paint.setColor(PURPLE2);
-                  paint.setStyle(Paint.Style.STROKE);
-                  paint.setStrokeCap(Paint.Cap.ROUND);
-                  paint.setStrokeJoin(Paint.Join.ROUND);
-                  paint.setStrokeWidth(context.getResources().getDisplayMetrics().density * 2f);
-              }
-
-              @Override protected void onDraw(Canvas c) {
-                  super.onDraw(c);
-                  float w=getWidth(), h=getHeight(), d=getResources().getDisplayMetrics().density;
-                  paint.setStrokeWidth(2f*d); paint.setStyle(Paint.Style.STROKE); path.reset();
-                  switch(type) {
-                      case HOME:
-                          path.moveTo(w*.20f,h*.48f); path.lineTo(w*.50f,h*.22f); path.lineTo(w*.80f,h*.48f);
-                          path.moveTo(w*.28f,h*.43f); path.lineTo(w*.28f,h*.78f); path.lineTo(w*.72f,h*.78f); path.lineTo(w*.72f,h*.43f); c.drawPath(path,paint); break;
-                      case IDEAS:
-                          c.drawCircle(w*.50f,h*.43f,w*.19f,paint); c.drawLine(w*.42f,h*.66f,w*.58f,h*.66f,paint); c.drawLine(w*.44f,h*.74f,w*.56f,h*.74f,paint); c.drawLine(w*.50f,h*.12f,w*.50f,h*.04f,paint); c.drawLine(w*.20f,h*.22f,w*.13f,h*.15f,paint); c.drawLine(w*.80f,h*.22f,w*.87f,h*.15f,paint); break;
-                      case VIDEOS:
-                          c.drawRoundRect(new RectF(w*.18f,h*.25f,w*.82f,h*.75f),4f*d,4f*d,paint); paint.setStyle(Paint.Style.FILL); path.moveTo(w*.44f,h*.37f); path.lineTo(w*.44f,h*.63f); path.lineTo(w*.65f,h*.50f); path.close(); c.drawPath(path,paint); break;
-                      case ANALYTICS:
-                          paint.setStyle(Paint.Style.FILL); c.drawRoundRect(new RectF(w*.20f,h*.56f,w*.31f,h*.78f),2*d,2*d,paint); c.drawRoundRect(new RectF(w*.39f,h*.42f,w*.50f,h*.78f),2*d,2*d,paint); c.drawRoundRect(new RectF(w*.58f,h*.27f,w*.69f,h*.78f),2*d,2*d,paint); c.drawRoundRect(new RectF(w*.77f,h*.16f,w*.88f,h*.78f),2*d,2*d,paint); break;
-                      case TOOLS:
-                          c.drawCircle(w*.50f,h*.50f,w*.20f,paint); c.drawCircle(w*.50f,h*.50f,w*.07f,paint); for(int i=0;i<8;i++){double a=Math.PI*2*i/8.0;float x1=(float)(w*.50f+Math.cos(a)*w*.25f),y1=(float)(h*.50f+Math.sin(a)*h*.25f),x2=(float)(w*.50f+Math.cos(a)*w*.34f),y2=(float)(h*.50f+Math.sin(a)*h*.34f);c.drawLine(x1,y1,x2,y2,paint);} break;
-                  }
-              }
+          drawable = root / 'app/src/main/res/drawable'
+          drawable.mkdir(parents=True, exist_ok=True)
+          icons = {
+          'nav_home.xml': '''<vector xmlns:android="http://schemas.android.com/apk/res/android" android:width="24dp" android:height="24dp" android:viewportWidth="24" android:viewportHeight="24"><path android:fillColor="#00000000" android:strokeColor="#FFFFFFFF" android:strokeWidth="1.9" android:strokeLineCap="round" android:strokeLineJoin="round" android:pathData="M3.5,10.8L12,3.8l8.5,7v8.7a1,1 0,0 1,-1,1h-5.2v-6h-4.6v6H4.5a1,1 0,0 1,-1,-1z"/></vector>''',
+          'nav_ideas.xml': '''<vector xmlns:android="http://schemas.android.com/apk/res/android" android:width="24dp" android:height="24dp" android:viewportWidth="24" android:viewportHeight="24"><path android:fillColor="#00000000" android:strokeColor="#FFFFFFFF" android:strokeWidth="1.9" android:strokeLineCap="round" android:strokeLineJoin="round" android:pathData="M9,18h6M10,21h4M8.6,14.8c-1.2,-1 -2.1,-2.5 -2.1,-4.3A5.5,5.5 0,0 1,12,5a5.5,5.5 0,0 1,5.5 5.5c0,1.8 -0.9,3.3 -2.1,4.3 -0.8,0.7 -1.1,1.2 -1.2,2.2h-4.4c-0.1,-1 -0.4,-1.5 -1.2,-2.2zM12,1.8v1.4M3.8,5.2l1.1,0.9M20.2,5.2l-1.1,0.9"/></vector>''',
+          'nav_videos.xml': '''<vector xmlns:android="http://schemas.android.com/apk/res/android" android:width="24dp" android:height="24dp" android:viewportWidth="24" android:viewportHeight="24"><path android:fillColor="#00000000" android:strokeColor="#FFFFFFFF" android:strokeWidth="1.9" android:strokeLineCap="round" android:strokeLineJoin="round" android:pathData="M4,5.5h16a1.5,1.5 0,0 1,1.5 1.5v10a1.5,1.5 0,0 1,-1.5 1.5H4A1.5,1.5 0,0 1,2.5 17V7A1.5,1.5 0,0 1,4 5.5zM10,9l5,3 -5,3z"/></vector>''',
+          'nav_analytics.xml': '''<vector xmlns:android="http://schemas.android.com/apk/res/android" android:width="24dp" android:height="24dp" android:viewportWidth="24" android:viewportHeight="24"><path android:fillColor="#00000000" android:strokeColor="#FFFFFFFF" android:strokeWidth="1.9" android:strokeLineCap="round" android:strokeLineJoin="round" android:pathData="M4,20V12h4v8M10,20V7h4v13M16,20V3h4v17M2.5,20.5h19"/></vector>''',
+          'nav_tools.xml': '''<vector xmlns:android="http://schemas.android.com/apk/res/android" android:width="24dp" android:height="24dp" android:viewportWidth="24" android:viewportHeight="24"><path android:fillColor="#00000000" android:strokeColor="#FFFFFFFF" android:strokeWidth="1.9" android:strokeLineCap="round" android:strokeLineJoin="round" android:pathData="M14.7,6.1a4.4,4.4 0,0 0,-5.9 5.9L3.5,17.3a2.1,2.1 0,1 0,3 3l5.3,-5.3a4.4,4.4 0,0 0,5.9 -5.9l-2.6,2.6 -2.8,-0.5 -0.5,-2.8z"/></vector>''',
           }
-          '''
-          if 'private static final class NavIconView' not in s:
-              end = s.rfind('\n}')
-              if end < 0: raise SystemExit('MainActivity closing brace not found')
-              s = s[:end] + nav_class + s[end:]
+          for name, data in icons.items():
+              (drawable / name).write_text(data)
 
-          checks = [
+          required = [
               'applySystemBarInsets();',
               's.setTextZoom(118);',
-              'nav(b, NavIconView.HOME',
-              'private static final class NavIconView',
-              'versionName = "1.7.0"' in g,
+              'R.drawable.nav_home',
+              'ImageView i = new ImageView(this);',
           ]
-          if not all(checks): raise SystemExit('Android patch verification failed')
-          p.write_text(s)
-          print('CreatorPulse Android 1.7.0 patch verified')
+          if not all(x in s for x in required):
+              raise SystemExit('patch verification failed')
+          for name in icons:
+              if not (drawable/name).is_file(): raise SystemExit(f'missing {name}')
+          print('CreatorPulse Android 1.7.0 phone patch verified')
           PY
+          python3 /tmp/patch_creatorpulse.py
 
       - name: Build APK
         working-directory: /tmp/creatorpulse-native/CreatorPulse-Android-REDESIGN

@@ -1,0 +1,127 @@
+--- LauncherActivity.java
++++ LauncherActivity.java
+@@ -79,7 +79,18 @@
+         root = new FrameLayout(this);
+         root.setBackgroundColor(BG);
+         setContentView(root);
+-        showSplash();
++        android.net.Uri launchData = getIntent() == null ? null : getIntent().getData();
++        if (launchData != null && "creatorpulse".equalsIgnoreCase(launchData.getScheme()) && "auth".equalsIgnoreCase(launchData.getHost())) {
++            handleGoogleAuthIntent(getIntent());
++        } else {
++            showSplash();
++        }
++    }
++
++    @Override protected void onNewIntent(Intent intent) {
++        super.onNewIntent(intent);
++        setIntent(intent);
++        handleGoogleAuthIntent(intent);
+     }
+ 
+     private void showSplash() {
+@@ -143,7 +154,7 @@
+     private void showLogin(String initialError) {
+         ScrollView scroll = screen();
+         LinearLayout p = page();
+-        authHeader(p, this::finish);
++        brand(p);
+         p.addView(kicker("WELCOME BACK"), margin(-1, -2, 0, 28, 0, 8));
+         p.addView(title("Log in to CreatorPulse"));
+         p.addView(copy("Your creator workspace, ideas, optimization tools and analytics in one app."), margin(-1, -2, 0, 8, 0, 20));
+@@ -169,6 +180,10 @@
+         Button login = primary("Log in");
+         p.addView(login, new LinearLayout.LayoutParams(-1, dp(56)));
+ 
++        Button google = secondary("Continue with Google");
++        google.setOnClickListener(v -> startGoogleLogin());
++        p.addView(google, margin(-1, dp(52), 0, 10, 0, 0));
++
+         TextView divider = text("────────  NEW TO CREATORPULSE?  ────────", Color.rgb(92, 98, 118), 10, false);
+         divider.setGravity(Gravity.CENTER);
+         p.addView(divider, margin(-1, -2, 0, 22, 0, 10));
+@@ -229,6 +244,10 @@
+         Button create = primary("Create free account");
+         p.addView(create, new LinearLayout.LayoutParams(-1, dp(56)));
+ 
++        Button google = secondary("Continue with Google");
++        google.setOnClickListener(v -> startGoogleLogin());
++        p.addView(google, margin(-1, dp(52), 0, 10, 0, 0));
++
+         TextView back = link("Already have an account? Log in");
+         back.setOnClickListener(v -> showLogin(null));
+         p.addView(back, margin(-1, -2, 0, 13, 0, 4));
+@@ -399,6 +418,58 @@
+         return cookie != null && cookie.contains("creatorpulse_session=");
+     }
+ 
++    private void startGoogleLogin() {
++        try {
++            Intent browser = new Intent(Intent.ACTION_VIEW, android.net.Uri.parse(APP_URL + "/api/auth/google/start?app=1"));
++            startActivity(browser);
++        } catch (Exception error) {
++            showLogin("Google sign-in could not be opened on this device.");
++        }
++    }
++
++    private void handleGoogleAuthIntent(Intent intent) {
++        android.net.Uri data = intent == null ? null : intent.getData();
++        if (data == null || !"creatorpulse".equalsIgnoreCase(data.getScheme()) || !"auth".equalsIgnoreCase(data.getHost())) return;
++        String code = data.getQueryParameter("code");
++        String error = data.getQueryParameter("error");
++        if (error != null && !error.isBlank()) {
++            showLogin("Google sign-in was cancelled or could not be completed.");
++            return;
++        }
++        if (code == null || code.isBlank()) {
++            showLogin("Google sign-in did not return a valid login code.");
++            return;
++        }
++        exchangeGoogleCode(code);
++    }
++
++    private void exchangeGoogleCode(String code) {
++        showMessage("Signing in with Google…", "Finishing your secure CreatorPulse session.", null, null);
++        io.execute(() -> {
++            HttpURLConnection c = null;
++            try {
++                c = api("/api/auth/google/exchange");
++                JSONObject body = new JSONObject();
++                body.put("code", code);
++                write(c, body.toString());
++                int status = c.getResponseCode();
++                saveCookies(c);
++                JSONObject json = json(c, status);
++                if (status >= 200 && status < 300 && json.optBoolean("ok", false)) {
++                    String destination = json.optString("destination", "/dashboard");
++                    runOnUiThread(() -> openApp(destination));
++                } else {
++                    String message = json.optString("error", "Google sign-in could not be completed.");
++                    runOnUiThread(() -> showLogin(message));
++                }
++            } catch (Exception error) {
++                runOnUiThread(() -> showLogin(hasNetwork() ? "CreatorPulse could not finish Google sign-in." : "You are offline."));
++            } finally {
++                if (c != null) c.disconnect();
++            }
++        });
++    }
++
+     private void openApp() { openApp("/dashboard"); }
+ 
+     private void openApp(String initialPath) {
+@@ -552,9 +623,11 @@
+         TextView c = copy(body);
+         c.setGravity(Gravity.CENTER);
+         p.addView(c, margin(-1, -2, 0, 0, 0, 18));
+-        Button b = primary(buttonText);
+-        b.setOnClickListener(action);
+-        p.addView(b, new LinearLayout.LayoutParams(-1, dp(54)));
++        if (buttonText != null && action != null) {
++            Button b = primary(buttonText);
++            b.setOnClickListener(action);
++            p.addView(b, new LinearLayout.LayoutParams(-1, dp(54)));
++        }
+         swap(p);
+     }
+ 

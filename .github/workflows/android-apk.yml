@@ -1,0 +1,57 @@
+name: Build CreatorPulse Redesign APK
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - creatorpulse-redesign-fix
+    paths:
+      - 'android-src.b64.part*'
+      - '.github/workflows/android-apk.yml'
+
+jobs:
+  build-apk:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Restore Android project
+        shell: bash
+        run: |
+          cat android-src.b64.part* | base64 --decode > CreatorPulse-Android-fixed.zip
+          mkdir -p android-app
+          unzip -q CreatorPulse-Android-fixed.zip -d android-app
+          test -f android-app/settings.gradle.kts
+          test -f android-app/app/build.gradle.kts
+
+      - name: Set up Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Set up Gradle 8.9
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.9'
+
+      - name: Build debug APK
+        working-directory: android-app
+        run: gradle :app:assembleDebug --stacktrace
+
+      - name: Verify APK
+        run: |
+          test -s android-app/app/build/outputs/apk/debug/app-debug.apk
+          cp android-app/app/build/outputs/apk/debug/app-debug.apk CreatorPulse-1.5.0-REDESIGN-FIXED.apk
+          ls -lh CreatorPulse-1.5.0-REDESIGN-FIXED.apk
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: CreatorPulse-1.5.0-REDESIGN-FIXED
+          path: CreatorPulse-1.5.0-REDESIGN-FIXED.apk
+          if-no-files-found: error
+          retention-days: 7

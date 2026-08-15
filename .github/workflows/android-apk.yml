@@ -23,12 +23,16 @@ jobs:
       - uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '8.9'
-      - name: Prepare CreatorPulse 1.4 Android source
+      - name: Prepare CreatorPulse 1.5 Android source
         run: |
           base64 -d android-app/build-source/LauncherActivity.java.gz.b64 | gzip -dc > android-app/app/src/main/java/com/creatorpulse/app/LauncherActivity.java
           base64 -d android-app/build-source/MainActivity.java.gz.b64 | gzip -dc > android-app/app/src/main/java/com/creatorpulse/app/MainActivity.java
-          grep -q 'CreatorPulseAndroid/1.4' android-app/app/src/main/java/com/creatorpulse/app/LauncherActivity.java
-          grep -q 'CreatorPulseAndroid/1.4' android-app/app/src/main/java/com/creatorpulse/app/MainActivity.java
+          patch -d android-app/app/src/main/java/com/creatorpulse/app -p0 < android-app/build-source/launcher-v1.5.patch
+          sed -i 's/CreatorPulseAndroid\/1\.4/CreatorPulseAndroid\/1.5/g' android-app/app/src/main/java/com/creatorpulse/app/LauncherActivity.java
+          sed -i 's/CreatorPulseAndroid\/1\.4/CreatorPulseAndroid\/1.5/g' android-app/app/src/main/java/com/creatorpulse/app/MainActivity.java
+          grep -q 'CreatorPulseAndroid/1.5' android-app/app/src/main/java/com/creatorpulse/app/LauncherActivity.java
+          grep -q 'Continue with Google' android-app/app/src/main/java/com/creatorpulse/app/LauncherActivity.java
+          grep -q 'CreatorPulseAndroid/1.5' android-app/app/src/main/java/com/creatorpulse/app/MainActivity.java
       - name: Build debug APK
         working-directory: android-app
         run: gradle :app:assembleDebug --stacktrace

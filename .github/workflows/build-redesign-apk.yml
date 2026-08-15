@@ -1,8 +1,9 @@
-name: Build CreatorPulse 1.6.2 Reference UI APK
+name: Build CreatorPulse 1.6.1 Android Native APK
 
 on:
   push:
     paths:
+      - 'android-native/**'
       - '.github/workflows/build-redesign-apk.yml'
   workflow_dispatch:
 
@@ -26,132 +27,32 @@ jobs:
         with:
           gradle-version: '8.9'
 
-      - name: Rebuild Android source archive
+      - name: Extract Android-native source
         shell: bash
         run: |
           set -euo pipefail
-          cat android-redesign/native.part*.b64 | tr -d '\n\r ' | base64 -d > /tmp/creatorpulse-src.zip
-          echo "31cb3fa8d7e475cd05d2ebfa2307d28a773098184abfb7f448c6b1339f6c457e  /tmp/creatorpulse-src.zip" | sha256sum -c -
-          mkdir -p /tmp/creatorpulse-src
-          unzip -q /tmp/creatorpulse-src.zip -d /tmp/creatorpulse-src
-
-      - name: Apply reference UI and free mode
-        shell: bash
-        run: |
-          python3 - <<'PY'
-          from pathlib import Path
-          import re, json
-
-          root = Path('/tmp/creatorpulse-src/CreatorPulse-Android-REDESIGN')
-          gradle = root / 'app/build.gradle.kts'
-          g = gradle.read_text()
-          g = re.sub(r'versionCode\s*=\s*\d+', 'versionCode = 12', g)
-          g = re.sub(r'versionName\s*=\s*"[^"]+"', 'versionName = "1.6.2"', g)
-          gradle.write_text(g)
-
-          p = root / 'app/src/main/java/com/creatorpulse/app/MainActivity.java'
-          s = p.read_text()
-          s = s.replace('CreatorPulseAndroid/1.6.0', 'CreatorPulseAndroid/1.6.2')
-          s = s.replace('CreatorPulseAndroid/1.6.1', 'CreatorPulseAndroid/1.6.2')
-
-          ref_css = r'''
-          html,body{background:#080a11!important;color:#f8f8fb!important}
-          body{overflow-x:hidden!important}
-          .cp-data-source-note,.data-legend,.cp-warning-ribbon,.cp-home-coach-card,.cp-coach-fab,.cp-upgrade-card,a[href='/pricing'],a[href^='/pricing?'],form[action*='/billing'],#billing,.billing-management,.billing-notice,.pricing-page-section,.pricing-hero,.pricing-grid,.pricing-assurance{display:none!important}
-          .locked{opacity:1!important;filter:none!important;pointer-events:auto!important}
-          .cp-shell-v3 .dashboard-content,.cp-dashboard-content,.dashboard-content,.creator-tools,.cp-ideas-v3,.cp-planner-v3,.settings-v2-content,.video-manager{box-sizing:border-box!important;width:calc(100% - 28px)!important;max-width:640px!important;margin:0 auto!important;padding:14px 0 28px!important}
-          .cp-dashboard-head,.cp-page-title,.creator-tools-head,.cp-ideas-heading,.cp-planner-head{margin:0 0 13px!important;padding:0!important;gap:5px!important}
-          .cp-dashboard-head h1,.cp-page-title h1,.creator-tools-head h1,.cp-ideas-heading h1,.cp-planner-head h1{font-size:25px!important;line-height:1.08!important;letter-spacing:-.035em!important;margin:0!important;color:#fff!important}
-          .cp-dashboard-head p,.cp-page-title p,.creator-tools-head p,.cp-ideas-heading p,.cp-planner-head p{font-size:11px!important;line-height:1.45!important;margin:4px 0 0!important;color:#9299aa!important}
-          .cp-period-chip,.period-control{padding:8px 10px!important;border-radius:11px!important;background:#10131d!important;border:1px solid #252b3b!important;min-width:86px!important;min-height:auto!important;box-shadow:none!important}
-          .cp-period-chip span,.cp-period-chip small{display:none!important}.cp-period-chip strong{font-size:10px!important}
-
-          .cp-home-metrics{display:grid!important;grid-template-columns:repeat(2,minmax(0,1fr))!important;gap:8px!important;margin:0 0 10px!important}
-          .cp-home-metrics article{box-sizing:border-box!important;min-height:78px!important;margin:0!important;padding:11px 12px!important;border:1px solid #242a3a!important;border-radius:12px!important;background:#10131d!important;box-shadow:none!important}
-          .cp-home-metrics .cp-metric-icon{display:none!important}
-          .cp-home-metrics article>div:last-child{display:grid!important;gap:4px!important}
-          .cp-home-metrics span{font-size:9px!important;color:#b6bac5!important}.cp-home-metrics strong{font-size:20px!important;line-height:1!important;color:#fff!important}.cp-home-metrics small{font-size:8px!important;line-height:1.3!important;color:#798092!important}
-          .cp-home-hero-grid,.cp-home-lower-grid{display:grid!important;grid-template-columns:1fr!important;gap:8px!important;margin:0 0 8px!important}
-          .cp-home-panel,.cp-opportunity-card{margin:0!important;padding:12px!important;border:1px solid #242a3a!important;border-radius:12px!important;background:#10131d!important;box-shadow:none!important}
-          .cp-opportunity-score,.cp-signal-pills{display:none!important}.cp-opportunity-card h2{font-size:15px!important;margin:0 0 5px!important}.cp-opportunity-card p{font-size:10px!important;line-height:1.45!important}
-          .cp-momentum{order:-5!important}.cp-momentum svg,.cp-momentum canvas{max-height:142px!important}.cp-momentum>a{display:flex!important;align-items:center!important;justify-content:space-between!important;min-height:39px!important;padding:0 10px!important;margin-top:8px!important;border-radius:9px!important;background:#141823!important;border:1px solid #242a3a!important;text-decoration:none!important;font-size:10px!important}
-
-          .button,button:not([class*=unstyled]){min-height:40px!important;border-radius:10px!important;font-size:11px!important;padding:8px 12px!important;background:linear-gradient(135deg,#8b5cf6,#6f45ea)!important;box-shadow:none!important}
-          .button.secondary,button.secondary{background:#151925!important;border:1px solid #2a3040!important}
-          input:not([type=checkbox]):not([type=radio]),textarea,select{box-sizing:border-box!important;border-radius:10px!important;background:#131722!important;border:1px solid #2a3040!important;font-size:12px!important;padding:10px 11px!important;color:#fff!important}
-          .tool-tabs,.filter-tabs{display:flex!important;gap:3px!important;padding:3px!important;border-radius:10px!important;background:#0e111a!important;border:1px solid #23293a!important;overflow-x:auto!important;box-shadow:none!important}
-          .tool-tabs button,.filter-tabs button{min-height:33px!important;background:transparent!important;font-size:10px!important;padding:6px 10px!important}
-          .tool-tabs button.active,.filter-tabs button.active,.filter-tabs button[aria-pressed=true]{background:#21183b!important;color:#cbb7ff!important}
-          .tool-layout{display:grid!important;grid-template-columns:1fr!important;gap:8px!important}
-          .tool-input-card,.tool-output-card,.generation-history{padding:12px!important;border-radius:12px!important;background:#10131d!important;border:1px solid #242a3a!important;box-shadow:none!important}
-          .creator-tools-head .eyebrow,.creator-tools-head .status-pill{display:none!important}
-          .generated-title-list>article{padding:9px!important;border-radius:10px!important;background:#0d1018!important;border:1px solid #242a3a!important}.generated-title-list ul,.generated-title-list p{display:none!important}.generated-title-list h2{font-size:12px!important;margin:0!important}
-
-          .cp-featured-idea{display:none!important}.cp-idea-controls{display:flex!important;gap:5px!important;overflow-x:auto!important;margin-bottom:9px!important}.cp-idea-controls>*{flex:0 0 auto!important;min-width:96px!important}.cp-idea-controls-spacer{display:none!important}
-          .cp-idea-card-grid{display:grid!important;grid-template-columns:1fr!important;gap:7px!important}
-          .cp-idea-card{display:grid!important;grid-template-columns:72px minmax(0,1fr) 18px!important;align-items:center!important;gap:9px!important;min-height:68px!important;padding:7px!important;border-radius:10px!important;background:#10131d!important;border:1px solid #242a3a!important;box-shadow:none!important}
-          .cp-idea-card-cover{width:72px!important;height:52px!important;min-height:52px!important;border-radius:7px!important;overflow:hidden!important}.cp-idea-card-cover img{width:100%!important;height:100%!important;object-fit:cover!important}
-          .cp-idea-card-body{padding:0!important;min-width:0!important}.cp-idea-card-body h3{font-size:11px!important;line-height:1.25!important;margin:0!important}.cp-idea-card-body>span,.cp-idea-card-body>p,.cp-idea-card-body details{display:none!important}
-
-          .metric-grid{display:grid!important;grid-template-columns:repeat(2,minmax(0,1fr))!important;gap:8px!important}.metric-card,.analytics-card,.table-card,.format-card{padding:11px!important;border-radius:11px!important;background:#10131d!important;border:1px solid #242a3a!important;box-shadow:none!important}.analytics-grid{display:grid!important;grid-template-columns:1fr!important;gap:8px!important}.metric-card strong{font-size:19px!important}.metric-card span{font-size:9px!important}
-          .table-card table{font-size:10px!important}.table-card th,.table-card td{padding:7px 5px!important}
-
-          .video-manager{display:block!important;border:0!important;background:transparent!important;box-shadow:none!important}.video-library{width:100%!important;background:transparent!important;border:0!important;padding:0!important}.video-library-list{display:grid!important;gap:7px!important}
-          .video-library-list>button{display:grid!important;grid-template-columns:92px minmax(0,1fr)!important;align-items:center!important;gap:8px!important;min-height:62px!important;padding:7px!important;border-radius:10px!important;background:#10131d!important;border:1px solid #242a3a!important;text-align:left!important}.video-library-list img,.library-thumb{width:92px!important;height:50px!important;object-fit:cover!important;border-radius:7px!important}.video-workspace{margin-top:9px!important;padding:11px!important;border-radius:12px!important;background:#10131d!important;border:1px solid #242a3a!important}.editor-layout{display:grid!important;grid-template-columns:1fr!important}
-
-          .cp-kanban{display:grid!important;grid-template-columns:1fr!important;gap:7px!important}.cp-kanban-column{min-width:0!important;border-radius:11px!important;background:#10131d!important;border:1px solid #242a3a!important;padding:8px!important}.cp-kanban-card{border-radius:9px!important;background:#0d1018!important;border:1px solid #222839!important;padding:9px!important}
-          .settings-v2-grid{display:grid!important;grid-template-columns:1fr!important}.settings-index{display:none!important}.settings-v2-content{display:grid!important;gap:7px!important}.settings-v2-content>article{padding:11px!important;border-radius:10px!important;background:#10131d!important;border:1px solid #242a3a!important;box-shadow:none!important}
-
-          @media(max-width:360px){.cp-shell-v3 .dashboard-content,.cp-dashboard-content,.dashboard-content,.creator-tools,.cp-ideas-v3,.cp-planner-v3,.settings-v2-content,.video-manager{width:calc(100% - 20px)!important}.cp-dashboard-head h1,.cp-page-title h1,.creator-tools-head h1,.cp-ideas-heading h1,.cp-planner-head h1{font-size:22px!important}}
-          '''
-
-          marker = '        String js = '
-          if marker in s and 'REFERENCE_UI_162' not in s:
-              s = s.replace(marker, '        css += /* REFERENCE_UI_162 */ ' + json.dumps(ref_css) + ';\n' + marker, 1)
-
-          free_js = r'''(function(){function f(){if(!document.body)return;document.body.setAttribute('data-cp-free','1');if(location.pathname==='/pricing'){location.replace('/dashboard');return;}document.querySelectorAll(".cp-upgrade-card,a[href='/pricing'],a[href^='/pricing?'],form[action*='/billing'],#billing,.billing-management,.billing-notice,.pricing-grid,.pricing-assurance").forEach(function(el){el.style.display='none';});document.querySelectorAll('.locked').forEach(function(el){el.classList.remove('locked');el.style.opacity='1';el.style.filter='none';});document.querySelectorAll('a,button').forEach(function(el){var t=(el.textContent||'').trim();if(/^upgrade/i.test(t)||/choose pro|manage subscription|view all plans|checkout/i.test(t)){el.style.display='none';}});}f();new MutationObserver(f).observe(document.documentElement,{childList:true,subtree:true});})();'''
-          needle = 'web.evaluateJavascript(js, null);'
-          if needle in s and 'data-cp-free' not in s:
-              s = s.replace(needle, needle + '\n        web.evaluateJavascript(' + json.dumps(free_js) + ', null);', 1)
-
-          top = '''    private LinearLayout topBar() {\n        LinearLayout b = row();\n        b.setGravity(Gravity.CENTER_VERTICAL);\n        b.setPadding(dp(4), dp(2), dp(4), dp(2));\n        b.setBackgroundColor(Color.rgb(8, 10, 17));\n        TextView menu = pill("☰"); menu.setTextSize(22); menu.setTextColor(Color.WHITE); menu.setBackgroundColor(Color.TRANSPARENT); menu.setOnClickListener(v -> go("/settings")); b.addView(menu, new LinearLayout.LayoutParams(dp(42), dp(46)));\n        TextView brand = wordmark(screenWidthDp() < 360 ? 18 : 20); brand.setGravity(Gravity.CENTER_VERTICAL); LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(0, dp(46), 1); lp.setMargins(dp(6),0,0,0); b.addView(brand, lp);\n        TextView bell = pill("♧"); bell.setTextSize(21); bell.setTextColor(Color.WHITE); bell.setBackgroundColor(Color.TRANSPARENT); bell.setOnClickListener(v -> Toast.makeText(this, "You're all caught up.", Toast.LENGTH_SHORT).show()); b.addView(bell, new LinearLayout.LayoutParams(dp(42), dp(46)));\n        return b;\n    }\n'''
-          s = re.sub(r'    private LinearLayout topBar\(\) \{.*?\n    \}\n\n(?=    private LinearLayout bottomBar\(\))', top + '\n', s, flags=re.S)
-
-          bottom = '''    private LinearLayout bottomBar() {\n        LinearLayout b = row();\n        b.setPadding(dp(2), dp(2), dp(2), dp(2));\n        b.setBackground(shape(Color.rgb(10,12,19), 0, Color.rgb(31,36,50)));\n        nav(b,"▥","Dashboard","/dashboard");\n        nav(b,"✦","Ideas","/ideas");\n        nav(b,"⚡","Optimize","/tools");\n        nav(b,"▣","Videos","/videos");\n        nav(b,"•••","More","/settings");\n        return b;\n    }\n'''
-          s = re.sub(r'    private LinearLayout bottomBar\(\) \{.*?\n    \}\n\n(?=    private void nav\()', bottom + '\n', s, flags=re.S)
-
-          upd = '''    private void updateNav(String path) {\n        String active = path == null ? "/dashboard" : path;\n        if (active.startsWith("/dashboard") || active.startsWith("/analytics") || active.startsWith("/growth-plan")) active = "/dashboard";\n        else if (active.startsWith("/ideas") || active.startsWith("/view-planner") || active.startsWith("/channel-launch")) active = "/ideas";\n        else if (active.startsWith("/tools") || active.startsWith("/ai-coach")) active = "/tools";\n        else if (active.startsWith("/videos")) active = "/videos";\n        else if (active.startsWith("/settings") || active.startsWith("/help")) active = "/settings";\n        else active = "";\n        for (Map.Entry<String, LinearLayout> entry : navItems.entrySet()) {\n            boolean selected = entry.getKey().equals(active);\n            LinearLayout item = entry.getValue();\n            item.setBackgroundColor(Color.TRANSPARENT);\n            if (item.getChildCount() >= 2) {\n                ((TextView)item.getChildAt(0)).setTextColor(selected ? PURPLE2 : Color.rgb(150,154,168));\n                ((TextView)item.getChildAt(1)).setTextColor(selected ? PURPLE2 : Color.rgb(132,138,151));\n            }\n        }\n    }\n'''
-          s = re.sub(r'    private void updateNav\(String path\) \{.*?\n    \}\n', upd + '\n', s, count=1, flags=re.S)
-
-          s = s.replace('tp.setMargins(dp(10), dp(6), dp(10), 0);', 'tp.setMargins(0, 0, 0, 0);')
-          s = s.replace('new FrameLayout.LayoutParams(-1, dp(60))', 'new FrameLayout.LayoutParams(-1, dp(58))')
-          s = s.replace('bp.setMargins(dp(10), 0, dp(10), dp(8));', 'bp.setMargins(0, 0, 0, 0);')
-          s = s.replace('new FrameLayout.LayoutParams(-1, dp(70))', 'new FrameLayout.LayoutParams(-1, dp(64))')
-          s = s.replace('p.topMargin = show ? dp(72) : 0;', 'p.topMargin = show ? dp(58) : 0;')
-          s = s.replace('p.bottomMargin = show ? dp(86) : 0;', 'p.bottomMargin = show ? dp(64) : 0;')
-          s = s.replace('                injectCss();', '                injectCss();\n                mainHandler.postDelayed(() -> injectCss(), 250);\n                mainHandler.postDelayed(() -> injectCss(), 900);', 1)
-          p.write_text(s)
-          PY
-          grep -q 'versionName = "1.6.2"' /tmp/creatorpulse-src/CreatorPulse-Android-REDESIGN/app/build.gradle.kts
-          grep -q 'REFERENCE_UI_162' /tmp/creatorpulse-src/CreatorPulse-Android-REDESIGN/app/src/main/java/com/creatorpulse/app/MainActivity.java
-          grep -q 'Dashboard","/dashboard' /tmp/creatorpulse-src/CreatorPulse-Android-REDESIGN/app/src/main/java/com/creatorpulse/app/MainActivity.java
+          rm -rf /tmp/creatorpulse-native
+          mkdir -p /tmp/creatorpulse-native
+          unzip -q android-native/CreatorPulse-1.6.1-ANDROID-NATIVE-SOURCE.zip -d /tmp/creatorpulse-native
+          test -f /tmp/creatorpulse-native/CreatorPulse-Android-REDESIGN/app/build.gradle.kts
 
       - name: Build APK
-        working-directory: /tmp/creatorpulse-src/CreatorPulse-Android-REDESIGN
+        working-directory: /tmp/creatorpulse-native/CreatorPulse-Android-REDESIGN
         run: gradle :app:assembleDebug --stacktrace
 
-      - name: Prepare APK
+      - name: Verify APK
         shell: bash
         run: |
           set -euo pipefail
-          cp /tmp/creatorpulse-src/CreatorPulse-Android-REDESIGN/app/build/outputs/apk/debug/app-debug.apk "$GITHUB_WORKSPACE/CreatorPulse-1.6.2-REFERENCE-UI-FREE.apk"
-          unzip -t "$GITHUB_WORKSPACE/CreatorPulse-1.6.2-REFERENCE-UI-FREE.apk"
-          ls -lh "$GITHUB_WORKSPACE/CreatorPulse-1.6.2-REFERENCE-UI-FREE.apk"
+          cp /tmp/creatorpulse-native/CreatorPulse-Android-REDESIGN/app/build/outputs/apk/debug/app-debug.apk "$GITHUB_WORKSPACE/CreatorPulse-1.6.1-ANDROID-NATIVE.apk"
+          unzip -t "$GITHUB_WORKSPACE/CreatorPulse-1.6.1-ANDROID-NATIVE.apk"
+          test -s "$GITHUB_WORKSPACE/CreatorPulse-1.6.1-ANDROID-NATIVE.apk"
+          sha256sum "$GITHUB_WORKSPACE/CreatorPulse-1.6.1-ANDROID-NATIVE.apk"
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: CreatorPulse-1.6.2-REFERENCE-UI-FREE
-          path: CreatorPulse-1.6.2-REFERENCE-UI-FREE.apk
+          name: CreatorPulse-1.6.1-ANDROID-NATIVE
+          path: CreatorPulse-1.6.1-ANDROID-NATIVE.apk
           if-no-files-found: error
           retention-days: 14

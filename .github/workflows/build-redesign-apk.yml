@@ -27,13 +27,15 @@ jobs:
         with:
           gradle-version: '8.9'
 
-      - name: Extract Android-native source
+      - name: Rebuild verified Android source
         shell: bash
         run: |
           set -euo pipefail
+          cat android-native/source.part*.b64 | tr -d '\n\r ' | base64 -d > /tmp/creatorpulse-native-src.zip
+          echo "e0ca67458cdb47de390759f8e3de74d9b35fe982907b679878b3ba8fae9b60d1  /tmp/creatorpulse-native-src.zip" | sha256sum -c -
           rm -rf /tmp/creatorpulse-native
           mkdir -p /tmp/creatorpulse-native
-          unzip -q android-native/CreatorPulse-1.6.1-ANDROID-NATIVE-SOURCE.zip -d /tmp/creatorpulse-native
+          unzip -q /tmp/creatorpulse-native-src.zip -d /tmp/creatorpulse-native
           test -f /tmp/creatorpulse-native/CreatorPulse-Android-REDESIGN/app/build.gradle.kts
 
       - name: Build APK
